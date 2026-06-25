@@ -596,18 +596,37 @@
           <!-- User Profile Settings -->
           <div class="card settings-card">
             <h2 class="card-subheading">User Profile</h2>
-            <div class="settings-row" style="border: none;">
+            <div class="settings-row">
               <div class="settings-info">
                 <span class="settings-title">Active Profile</span>
                 <span class="settings-desc">Your active personal ledger profile.</span>
               </div>
-              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                 <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);"
                   id="settings-profile-username">User</div>
-                <button id="btn-logout-mobile" class="btn btn-danger"
-                  style="padding: 6px 12px; font-size: 0.75rem; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; border: none; box-shadow: var(--shadow-sm);">Logout
-                  Profile</button>
               </div>
+            </div>
+            
+            <div class="settings-row">
+              <div class="settings-info">
+                <span class="settings-title">Switch Active Profile</span>
+                <span class="settings-desc">Switch directly to another local user profile.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="select-switch-profile" class="form-control" style="max-width: 150px; font-weight: 600; padding: 6px 12px; height: auto;">
+                  <!-- Options loaded dynamically -->
+                </select>
+              </div>
+            </div>
+            
+            <div class="settings-row" style="border: none;">
+              <div class="settings-info">
+                <span class="settings-title">Account Session</span>
+                <span class="settings-desc">Sign out of the current profile ledger session.</span>
+              </div>
+              <button id="btn-logout-mobile" class="btn btn-danger"
+                style="padding: 6px 12px; font-size: 0.75rem; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; border: none; box-shadow: var(--shadow-sm);">Logout
+                Profile</button>
             </div>
           </div>
 

@@ -46,56 +46,24 @@ let state = {
 let currentUser = '';
 
 // --- Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-  // Pre-seed default profiles if accounts database is empty
-  let accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
-  if (Object.keys(accounts).length === 0) {
-    accounts['john'] = { username: 'John', password: 'password', userId: 'user-john' };
-    accounts['jane'] = { username: 'Jane', password: 'password', userId: 'user-jane' };
-    accounts['alex'] = { username: 'Alex', password: 'password', userId: 'user-alex' };
-    localStorage.setItem('monthly_expenses_accounts', JSON.stringify(accounts));
+// --- Initialization ---
+const API_URL = 'http://localhost:3000/api';
 
-    // Also populate demo data for user-john so his account is not empty on first login
-    const johnKey = STORAGE_KEY + '_user-john';
-    if (!localStorage.getItem(johnKey)) {
-      const formatOffsetDate = (offsetDays) => {
-        const d = new Date();
-        d.setDate(new Date().getDate() - offsetDays);
-        return d.toISOString().split('T')[0];
-      };
-      const demoTransactions = [
-        { id: 'tx-demo-1', type: 'income', amount: 125000.00, date: formatOffsetDate(12), category: 'cat-salary', description: 'Monthly Salary Paycheck', notes: 'Direct deposit primary job' },
-        { id: 'tx-demo-2', type: 'income', amount: 8500.00, date: formatOffsetDate(5), category: 'cat-investments', description: 'Dividend Payout', notes: 'Mutual fund returns' },
-        { id: 'tx-demo-3', type: 'expense', amount: 2800.00, date: formatOffsetDate(1), category: 'cat-utilities', description: 'Electricity Bill', notes: 'Autopay energy' },
-        { id: 'tx-demo-4', type: 'expense', amount: 25000.00, date: formatOffsetDate(10), category: 'cat-housing', description: 'Monthly House Rent', notes: '2BHK Apartment' },
-        { id: 'tx-demo-5', type: 'expense', amount: 1250.00, date: formatOffsetDate(2), category: 'cat-food', description: 'Dinner at Restaurant', notes: 'Dinner with friends' }
-      ];
-      const johnState = {
-        transactions: demoTransactions,
-        budgets: { ...DEFAULT_BUDGETS },
-        categories: [ ...DEFAULT_CATEGORIES ],
-        theme: 'light',
-        activeView: 'view-dashboard'
-      };
-      localStorage.setItem(johnKey, JSON.stringify(johnState));
-    }
-  }
+// Fetch options helper
+function getAuthHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${currentUser}`
+  };
+}
 
+document.addEventListener('DOMContentLoaded', async () => {
   // Load current session
   currentUser = localStorage.getItem('monthly_expenses_current_user') || '';
 
-  let sessionValid = false;
   if (currentUser) {
-    accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
-    const hasAccount = Object.values(accounts).some(acc => acc.userId === currentUser);
-    if (hasAccount) {
-      sessionValid = true;
-    }
-  }
-
-  if (sessionValid) {
     document.body.className = 'logged-in';
-    loadStateFromStorage();
+    await loadStateFromStorage();
     updateUserProfileUI();
     applyTheme(state.theme);
     setCurrentDate();
@@ -104,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     currentUser = '';
     localStorage.removeItem('monthly_expenses_current_user');
+    localStorage.removeItem('monthly_expenses_username');
     document.body.className = 'logged-out';
     applyTheme('light'); // default theme for auth page
   }
@@ -112,9 +81,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- State Management ---
-function saveStateToStorage() {
-  if (currentUser) {
-    localStorage.setItem(STORAGE_KEY + '_' + currentUser, JSON.stringify(state));
+async function saveStateToStorage() {
+  if (!currentUser) return;
+  
+  // Backup locally first
+  localStorage.setItem(STORAGE_KEY + '_' + currentUser, JSON.stringify(state));
+  
+  try {
+    const res = await fetch(`${API_URL}/state`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ state })
+    });
+    if (!res.ok) {
+      console.warn('Failed to sync state to server.');
+    }
+  } catch (err) {
+    console.error('Error syncing state to server:', err);
   }
 }
 
@@ -136,7 +119,12 @@ function setupEventListeners() {
   // Quick Action Buttons
   document.getElementById('btn-add-tx').addEventListener('click', () => openTransactionModal());
   document.getElementById('btn-see-all-tx').addEventListener('click', () => navigate('view-transactions'));
-  document.getElementById('btn-load-demo').addEventListener('click', () => loadDemoData(true));
+  
+  const loadDemoBtn = document.getElementById('btn-load-demo');
+  if (loadDemoBtn) {
+    loadDemoBtn.addEventListener('click', () => loadDemoData(true));
+  }
+  
   document.getElementById('btn-download-txs').addEventListener('click', exportLedgerPDF);
   
   // Transaction Modal Closures
@@ -147,10 +135,12 @@ function setupEventListeners() {
   const txTypeRadios = document.querySelectorAll('input[name="tx-type"]');
   txTypeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
+      const editId = document.getElementById('tx-edit-id').value;
       updateCategoryDropdown(e.target.value);
-      updateSubmitButtonText(e.target.value);
+      updateSubmitButtonText(e.target.value, !!editId);
     });
   });
+
 
   // Transaction Modal Submit Form
   document.getElementById('form-transaction').addEventListener('submit', handleTransactionSubmit);
@@ -170,13 +160,26 @@ function setupEventListeners() {
   document.getElementById('form-add-category').addEventListener('submit', handleAddCategorySubmit);
 
   // Data Integration Backups
-  document.getElementById('btn-export-json').addEventListener('click', exportDatabaseJSON);
-  document.getElementById('btn-export-pdf').addEventListener('click', exportLedgerPDF);
-  document.getElementById('input-import-json').addEventListener('change', importDatabaseJSON);
+  const exportJsonBtn = document.getElementById('btn-export-json');
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', exportDatabaseJSON);
+  }
+  
+  const exportPdfBtn = document.getElementById('btn-export-pdf');
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', exportLedgerPDF);
+  }
+  
+  const importJsonInput = document.getElementById('input-import-json');
+  if (importJsonInput) {
+    importJsonInput.addEventListener('change', importDatabaseJSON);
+  }
+  
   const wipeDataBtn = document.getElementById('btn-wipe-data');
   if (wipeDataBtn) {
     wipeDataBtn.addEventListener('click', handleHardReset);
   }
+
 
   // Authentication screen listeners
   const tabLogin = document.getElementById('tab-login');
@@ -212,10 +215,22 @@ function setupEventListeners() {
   if (logoutBtnMobile) {
     logoutBtnMobile.addEventListener('click', handleLogout);
   }
+
+  const profileSelect = document.getElementById('select-switch-profile');
+  if (profileSelect) {
+    profileSelect.addEventListener('change', (e) => {
+      const selectedUserId = e.target.value;
+      const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+      const targetAcc = Object.values(accounts).find(acc => acc.userId === selectedUserId);
+      if (targetAcc) {
+        switchUserProfile(targetAcc.userId, targetAcc.username);
+      }
+    });
+  }
 }
 
 // --- Authentication Controllers ---
-function handleLoginSubmit(e) {
+async function handleLoginSubmit(e) {
   e.preventDefault();
   const usernameInput = document.getElementById('login-username').value.trim();
   const passwordInput = document.getElementById('login-password').value;
@@ -227,39 +242,68 @@ function handleLoginSubmit(e) {
     return;
   }
 
-  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
-  const accountKey = usernameInput.toLowerCase();
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: usernameInput, password: passwordInput })
+    });
 
-  if (!accounts[accountKey]) {
-    errorDiv.innerText = 'Account does not exist. Please register first.';
-    errorDiv.style.display = 'block';
-    return;
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorDiv.innerText = data.error || 'Failed to log in.';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    // Login successful
+    currentUser = data.userId;
+    localStorage.setItem('monthly_expenses_current_user', currentUser);
+    localStorage.setItem('monthly_expenses_username', data.username);
+    document.body.className = 'logged-in';
+    
+    await loadStateFromStorage();
+    updateUserProfileUI();
+    applyTheme(state.theme);
+    renderAll();
+    
+    // Reset form
+    document.getElementById('form-login').reset();
+    errorDiv.style.display = 'none';
+  } catch (err) {
+    console.warn('Backend server connection failed. Attempting local offline login fallback:', err);
+    
+    // Check if user exists in local accounts
+    const localAccounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+    const matchedAccount = Object.values(localAccounts).find(
+      acc => acc.username.trim().toLowerCase() === usernameInput.toLowerCase()
+    );
+
+    if (matchedAccount && passwordInput === matchedAccount.password) {
+      // Offline login successful
+      currentUser = matchedAccount.userId;
+      localStorage.setItem('monthly_expenses_current_user', currentUser);
+      localStorage.setItem('monthly_expenses_username', matchedAccount.username);
+      document.body.className = 'logged-in';
+      
+      await loadStateFromStorage();
+      updateUserProfileUI();
+      applyTheme(state.theme);
+      renderAll();
+      
+      // Reset form
+      document.getElementById('form-login').reset();
+      errorDiv.style.display = 'none';
+    } else {
+      errorDiv.innerText = 'Unable to connect to server, and no matching offline credentials found.';
+      errorDiv.style.display = 'block';
+    }
   }
-
-  const userAcc = accounts[accountKey];
-  if (userAcc.password !== passwordInput) {
-    errorDiv.innerText = 'Incorrect password. Please try again.';
-    errorDiv.style.display = 'block';
-    return;
-  }
-
-  // Login successful
-  currentUser = userAcc.userId;
-  localStorage.setItem('monthly_expenses_current_user', currentUser);
-  document.body.className = 'logged-in';
-  
-  loadStateFromStorage();
-  updateUserProfileUI();
-  applyTheme(state.theme);
-  renderAll();
-  
-  // Reset form
-  document.getElementById('form-login').reset();
-  errorDiv.style.display = 'none';
 }
 
 // --- User Registration & Login ---
-function handleRegisterSubmit(e) {
+async function handleRegisterSubmit(e) {
   e.preventDefault();
   const usernameInput = document.getElementById('register-username').value.trim();
   const passwordInput = document.getElementById('register-password').value;
@@ -277,47 +321,81 @@ function handleRegisterSubmit(e) {
     return;
   }
 
-  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
-  const accountKey = usernameInput.toLowerCase();
+  try {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: usernameInput, password: passwordInput })
+    });
 
-  if (accounts[accountKey]) {
-    errorDiv.innerText = 'Username is already taken.';
-    errorDiv.style.display = 'block';
-    return;
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorDiv.innerText = data.error || 'Failed to register account.';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    // Auto Login
+    currentUser = data.userId;
+    localStorage.setItem('monthly_expenses_current_user', currentUser);
+    localStorage.setItem('monthly_expenses_username', data.username);
+    document.body.className = 'logged-in';
+
+    await loadStateFromStorage();
+    updateUserProfileUI();
+    applyTheme(state.theme);
+    renderAll();
+
+    // Reset form
+    document.getElementById('form-register').reset();
+    errorDiv.style.display = 'none';
+  } catch (err) {
+    console.warn('Backend server connection failed. Attempting local offline registration fallback:', err);
+    
+    const localAccounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+    const usernameKey = usernameInput.toLowerCase();
+    
+    if (localAccounts[usernameKey]) {
+      errorDiv.innerText = 'Username is already taken locally.';
+      errorDiv.style.display = 'block';
+      return;
+    }
+
+    // Register locally
+    const userId = 'user-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    localAccounts[usernameKey] = {
+      username: usernameInput,
+      password: passwordInput,
+      userId: userId
+    };
+    localStorage.setItem('monthly_expenses_accounts', JSON.stringify(localAccounts));
+
+    // Seed default state for new user
+    const userStateKey = STORAGE_KEY + '_' + userId;
+    const defaultState = {
+      transactions: [],
+      budgets: { ...DEFAULT_BUDGETS },
+      categories: [ ...DEFAULT_CATEGORIES ],
+      theme: 'light',
+      activeView: 'view-dashboard'
+    };
+    localStorage.setItem(userStateKey, JSON.stringify(defaultState));
+
+    // Log in
+    currentUser = userId;
+    localStorage.setItem('monthly_expenses_current_user', currentUser);
+    localStorage.setItem('monthly_expenses_username', usernameInput);
+    document.body.className = 'logged-in';
+
+    await loadStateFromStorage();
+    updateUserProfileUI();
+    applyTheme(state.theme);
+    renderAll();
+
+    document.getElementById('form-register').reset();
+    errorDiv.style.display = 'none';
   }
-
-  // Create new account
-  const userId = 'user-' + Date.now();
-  accounts[accountKey] = {
-    username: usernameInput,
-    password: passwordInput,
-    userId: userId
-  };
-  localStorage.setItem('monthly_expenses_accounts', JSON.stringify(accounts));
-
-  // Auto Login
-  currentUser = userId;
-  localStorage.setItem('monthly_expenses_current_user', currentUser);
-  document.body.className = 'logged-in';
-
-  // Initialize state
-  state = {
-    transactions: [],
-    budgets: { ...DEFAULT_BUDGETS },
-    categories: [ ...DEFAULT_CATEGORIES ],
-    theme: 'light',
-    activeView: 'view-dashboard'
-  };
-  saveStateToStorage();
-
-  // Load and render
-  updateUserProfileUI();
-  applyTheme(state.theme);
-  renderAll();
-
-  // Reset form
-  document.getElementById('form-register').reset();
-  errorDiv.style.display = 'none';
 }
 
 function handleLogout() {
@@ -325,6 +403,7 @@ function handleLogout() {
     saveStateToStorage();
     currentUser = '';
     localStorage.removeItem('monthly_expenses_current_user');
+    localStorage.removeItem('monthly_expenses_username');
     document.body.className = 'logged-out';
   }
 }
@@ -335,12 +414,7 @@ function updateUserProfileUI() {
   const sidebarUsername = document.getElementById('logged-in-username');
   const settingsUsername = document.getElementById('settings-profile-username');
   
-  let name = 'User';
-  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
-  const userAcc = Object.values(accounts).find(acc => acc.userId === currentUser);
-  if (userAcc) {
-    name = userAcc.username;
-  }
+  let name = localStorage.getItem('monthly_expenses_username') || 'User';
   
   if (avatar) {
     avatar.innerText = name.substring(0, 2).toUpperCase();
@@ -354,11 +428,76 @@ function updateUserProfileUI() {
   if (settingsUsername) {
     settingsUsername.innerText = name;
   }
+  
+  populateProfileSwitcher();
+}
+
+function populateProfileSwitcher() {
+  const select = document.getElementById('select-switch-profile');
+  if (!select) return;
+
+  select.innerHTML = '';
+  
+  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  
+  Object.values(accounts).forEach(acc => {
+    const opt = document.createElement('option');
+    opt.value = acc.userId;
+    opt.textContent = acc.username;
+    if (acc.userId === currentUser) {
+      opt.selected = true;
+    }
+    select.appendChild(opt);
+  });
+}
+
+async function switchUserProfile(newUserId, newUsername) {
+  // 1. Save current state
+  await saveStateToStorage();
+
+  // 2. Switch current user
+  currentUser = newUserId;
+  localStorage.setItem('monthly_expenses_current_user', currentUser);
+  localStorage.setItem('monthly_expenses_username', newUsername);
+
+  // 3. Load state for the new user
+  await loadStateFromStorage();
+
+  // 4. Update UI
+  updateUserProfileUI();
+  applyTheme(state.theme);
+  renderAll();
+
+  // 5. Navigate to Dashboard
+  navigate('view-dashboard');
 }
 
 // --- State Management Helpers ---
-function loadStateFromStorage() {
+async function loadStateFromStorage() {
   if (!currentUser) return;
+  
+  try {
+    const res = await fetch(`${API_URL}/state`, {
+      headers: getAuthHeaders()
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state = {
+        transactions: data.transactions || [],
+        budgets: data.budgets || { ...DEFAULT_BUDGETS },
+        categories: data.categories || [ ...DEFAULT_CATEGORIES ],
+        theme: data.theme || 'light',
+        activeView: data.activeView || 'view-dashboard'
+      };
+      // Backup locally
+      localStorage.setItem(STORAGE_KEY + '_' + currentUser, JSON.stringify(state));
+      return;
+    }
+  } catch (err) {
+    console.error('Failed to load state from server, falling back to local storage:', err);
+  }
+
+  // Fallback to LocalStorage
   const stored = localStorage.getItem(STORAGE_KEY + '_' + currentUser);
   if (stored) {
     try {
@@ -385,6 +524,7 @@ function loadStateFromStorage() {
     saveStateToStorage();
   }
 }
+
 
 // --- Navigation Controller ---
 function navigate(viewId) {
@@ -1723,8 +1863,11 @@ function loadDemoData(triggerAlert = true) {
   saveStateToStorage();
   renderAll();
 
+  // Export PDF automatically
+  exportLedgerPDF();
+
   if (triggerAlert) {
-    alert('Financial ledger demo database loaded successfully!\nWe configured sample incomes, fixed utilities, groceries, budgets, and shopping trends in Indian Rupees.');
+    alert('Financial ledger demo database loaded and statement downloaded successfully!\nWe configured sample incomes, fixed utilities, groceries, budgets, and shopping trends in Indian Rupees.');
     navigate('view-dashboard');
   }
 }
