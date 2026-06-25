@@ -1,0 +1,8 @@
+{
+  "appId": "com.monthlyexpenses.app",
+  "appName": "Monthly Expenses",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

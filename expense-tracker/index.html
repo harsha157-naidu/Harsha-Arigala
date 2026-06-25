@@ -12,6 +12,76 @@
 
 <body>
 
+  <!-- Authentication Screen (Login / Registration) -->
+  <div id="auth-container" class="auth-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="auth-brand-icon">
+          <!-- Custom SVG wallet/ledger logo -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-activity">
+            <line x1="22" y1="12" x2="2" y2="12"></line>
+            <path
+              d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
+            </path>
+            <line x1="6" y1="16" x2="6.01" y2="16"></line>
+            <line x1="10" y1="16" x2="10.01" y2="16"></line>
+          </svg>
+        </div>
+        <span class="auth-brand-name">Monthly Expenses</span>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-login">Login</button>
+        <button type="button" class="auth-tab" id="tab-register">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" class="auth-form active">
+        <h2 class="auth-title">Welcome Back</h2>
+        <p class="auth-subtitle">Please sign in to access your ledger.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="login-username">Username</label>
+          <input class="form-control" type="text" id="login-username" placeholder="Enter your username" required
+            autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="login-password">Password</label>
+          <input class="form-control" type="password" id="login-password" placeholder="Enter your password" required
+            autocomplete="current-password">
+        </div>
+
+        <div id="login-error" class="auth-error-msg"
+          style="display: none; color: var(--danger); font-size: 0.85rem; font-weight: 700; margin-bottom: 16px;"></div>
+
+        <button type="submit" class="btn btn-primary btn-auth" style="width: 100%;">Sign In</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="form-register" class="auth-form">
+        <h2 class="auth-title">Create Account</h2>
+        <p class="auth-subtitle">Start tracking your monthly expenses today.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="register-username">Username</label>
+          <input class="form-control" type="text" id="register-username" placeholder="Pick a username" required
+            autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="register-password">Password</label>
+          <input class="form-control" type="password" id="register-password" placeholder="Create a password" required
+            autocomplete="new-password">
+        </div>
+
+        <div id="register-error" class="auth-error-msg"
+          style="display: none; color: var(--danger); font-size: 0.85rem; font-weight: 700; margin-bottom: 16px;"></div>
+
+        <button type="submit" class="btn btn-primary btn-auth" style="width: 100%;">Create Account</button>
+      </form>
+    </div>
+  </div>
+
   <div class="app-container">
 
     <!-- Sidebar Navigation -->
@@ -108,14 +178,16 @@
           </button>
         </div>
         <div class="user-widget">
-          <div class="avatar" id="user-avatar">JD</div>
+          <div class="avatar" id="user-avatar">U</div>
           <div class="user-info">
-            <select class="user-selector" id="user-profile-select" title="Switch User Profile">
-              <option value="user-john">John Doe</option>
-              <option value="user-jane">Jane Smith</option>
-              <option value="user-alex">Alex Johnson</option>
-            </select>
-            <div class="user-plan">Personal Plan</div>
+            <div class="username" id="logged-in-username"
+              style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">User</div>
+            <div class="user-plan" style="display: flex; align-items: center; gap: 8px;">
+              <span>Personal Plan</span>
+              <span>•</span>
+              <button id="btn-logout"
+                style="color: var(--danger); font-weight: 700; font-size: 0.75rem; border: none; background: none; cursor: pointer; padding: 0; transition: var(--transition-fast);">Logout</button>
+            </div>
           </div>
         </div>
       </div>
@@ -434,20 +506,23 @@
         <!-- Expense Category Breakdown Table -->
         <div class="card">
           <h2 class="card-subheading">Categorical Outlay Report</h2>
-          <table style="width: 100%; border-collapse: collapse; text-align: left;" id="tbl-category-report">
-            <thead>
-              <tr
-                style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-weight: 700; font-size: 0.85rem;">
-                <th style="padding: 12px 16px;">Category</th>
-                <th style="padding: 12px 16px; text-align: right;">Transactions Count</th>
-                <th style="padding: 12px 16px; text-align: right;">Total Outlay</th>
-                <th style="padding: 12px 16px; text-align: right;">Percentage of Expenses</th>
-              </tr>
-            </thead>
-            <tbody id="tbl-category-report-body">
-              <!-- Loaded dynamically -->
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table style="width: 100%; min-width: 550px; border-collapse: collapse; text-align: left;"
+              id="tbl-category-report">
+              <thead>
+                <tr
+                  style="border-bottom: 2px solid var(--border-color); color: var(--text-secondary); font-weight: 700; font-size: 0.85rem;">
+                  <th style="padding: 12px 16px;">Category</th>
+                  <th style="padding: 12px 16px; text-align: right;">Transactions Count</th>
+                  <th style="padding: 12px 16px; text-align: right;">Total Outlay</th>
+                  <th style="padding: 12px 16px; text-align: right;">Percentage of Expenses</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-category-report-body">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </section>
@@ -507,83 +582,36 @@
             </div>
           </div>
 
-          <!-- Data backup/integration -->
+          <!-- Clear Data Card -->
           <div class="card settings-card">
-            <h2 class="card-subheading">Data Integration & Backup</h2>
+            <h2 class="card-subheading">Clear the Data</h2>
+            <span class="settings-desc"
+              style="color: var(--danger); font-size: 0.85rem; line-height: 1.5; font-weight: 600;">
+              caution: This will wipe out all categories, budgets, and transactions permanently.
+            </span>
+            <button class="btn btn-danger" id="btn-wipe-data"
+              style="width: 100%; justify-content: center; padding: 12px 20px; font-weight: 700;">Clear Data</button>
+          </div>
 
-            <div class="settings-row">
-              <div class="settings-info">
-                <span class="settings-title">Export Database (JSON)</span>
-                <span class="settings-desc">Download a raw structural backup of your settings, budgets, and
-                  ledger.</span>
-              </div>
-              <button class="btn btn-secondary" id="btn-export-json">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                <span>JSON</span>
-              </button>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-info">
-                <span class="settings-title">Export Transactions (PDF)</span>
-                <span class="settings-desc">Export ledger records to a portable document format (PDF).</span>
-              </div>
-              <button class="btn btn-secondary" id="btn-export-pdf" title="Export transactions as PDF file">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <span>PDF</span>
-              </button>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-info">
-                <span class="settings-title">Restore Database Backup</span>
-                <span class="settings-desc">Load database state from a previously exported JSON backup file.</span>
-              </div>
-              <label class="btn btn-secondary" style="cursor: pointer;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <span>Import JSON</span>
-                <input type="file" id="input-import-json" accept=".json" style="display: none;">
-              </label>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-info">
-                <span class="settings-title">Populate Sandbox (Demo Data)</span>
-                <span class="settings-desc">Fill the database with sample transactions, budgets, and categories for
-                  evaluation.</span>
-              </div>
-              <button class="btn btn-secondary" id="btn-load-demo">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Load Demo Data</span>
-              </button>
-            </div>
-
+          <!-- User Profile Settings -->
+          <div class="card settings-card">
+            <h2 class="card-subheading">User Profile</h2>
             <div class="settings-row" style="border: none;">
               <div class="settings-info">
-                <span class="settings-title">Hard Reset Database</span>
-                <span class="settings-desc" style="color: var(--danger);">CAUTION: This will wipe out all categories,
-                  budgets, and transactions permanently.</span>
+                <span class="settings-title">Active Profile</span>
+                <span class="settings-desc">Your active personal ledger profile.</span>
               </div>
-              <button class="btn btn-danger" id="btn-wipe-data">Wipe All Data</button>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);"
+                  id="settings-profile-username">User</div>
+                <button id="btn-logout-mobile" class="btn btn-danger"
+                  style="padding: 6px 12px; font-size: 0.75rem; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; border: none; box-shadow: var(--shadow-sm);">Logout
+                  Profile</button>
+              </div>
             </div>
           </div>
+
+
 
       </section>
 
@@ -592,7 +620,8 @@
     <!-- Mobile Bottom Navigation Bar -->
     <div class="mobile-bottom-nav">
       <button class="nav-item active" data-target="view-dashboard">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="9"></rect>
           <rect x="14" y="3" width="7" height="5"></rect>
           <rect x="14" y="12" width="7" height="9"></rect>
@@ -601,7 +630,8 @@
         <span>Dashboard</span>
       </button>
       <button class="nav-item" data-target="view-transactions">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
           <line x1="8" y1="6" x2="21" y2="6"></line>
           <line x1="8" y1="12" x2="21" y2="12"></line>
           <line x1="8" y1="18" x2="21" y2="18"></line>
@@ -612,7 +642,8 @@
         <span>Ledger</span>
       </button>
       <button class="nav-item" data-target="view-budgets">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="16"></line>
           <line x1="8" y1="12" x2="16" y2="12"></line>
@@ -620,16 +651,20 @@
         <span>Budgets</span>
       </button>
       <button class="nav-item" data-target="view-analytics">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
           <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
         </svg>
         <span>Charts</span>
       </button>
       <button class="nav-item" data-target="view-settings">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
         </svg>
         <span>Settings</span>
       </button>
@@ -770,4 +805,5 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

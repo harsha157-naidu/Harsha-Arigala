@@ -1,0 +1,20 @@
+{
+  "name": "monthly-expenses",
+  "version": "1.0.0",
+  "description": "Monthly Expenses Personal Expense Tracker",
+  "main": "www/index.html",
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "cap:sync": "cap sync",
+    "cap:open:android": "cap open android",
+    "cap:open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  }
+}

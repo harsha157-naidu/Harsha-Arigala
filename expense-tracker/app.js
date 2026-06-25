@@ -43,79 +43,78 @@ let state = {
 };
 
 // Current User state variable
-let currentUser = 'user-john';
+let currentUser = '';
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-  // Migrate current user setting if it exists under old key
-  if (!localStorage.getItem('monthly_expenses_current_user') && localStorage.getItem('apex_ledger_current_user')) {
-    localStorage.setItem('monthly_expenses_current_user', localStorage.getItem('apex_ledger_current_user'));
-  }
-  
-  currentUser = localStorage.getItem('monthly_expenses_current_user') || 'user-john';
+  // Pre-seed default profiles if accounts database is empty
+  let accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  if (Object.keys(accounts).length === 0) {
+    accounts['john'] = { username: 'John', password: 'password', userId: 'user-john' };
+    accounts['jane'] = { username: 'Jane', password: 'password', userId: 'user-jane' };
+    accounts['alex'] = { username: 'Alex', password: 'password', userId: 'user-alex' };
+    localStorage.setItem('monthly_expenses_accounts', JSON.stringify(accounts));
 
-  // Migrate state data for preset profiles
-  ['user-john', 'user-jane', 'user-alex'].forEach(userId => {
-    const oldKey = MIGRATION_OLD_KEY + '_' + userId;
-    const newKey = STORAGE_KEY + '_' + userId;
-    if (localStorage.getItem(oldKey) && !localStorage.getItem(newKey)) {
-      localStorage.setItem(newKey, localStorage.getItem(oldKey));
+    // Also populate demo data for user-john so his account is not empty on first login
+    const johnKey = STORAGE_KEY + '_user-john';
+    if (!localStorage.getItem(johnKey)) {
+      const formatOffsetDate = (offsetDays) => {
+        const d = new Date();
+        d.setDate(new Date().getDate() - offsetDays);
+        return d.toISOString().split('T')[0];
+      };
+      const demoTransactions = [
+        { id: 'tx-demo-1', type: 'income', amount: 125000.00, date: formatOffsetDate(12), category: 'cat-salary', description: 'Monthly Salary Paycheck', notes: 'Direct deposit primary job' },
+        { id: 'tx-demo-2', type: 'income', amount: 8500.00, date: formatOffsetDate(5), category: 'cat-investments', description: 'Dividend Payout', notes: 'Mutual fund returns' },
+        { id: 'tx-demo-3', type: 'expense', amount: 2800.00, date: formatOffsetDate(1), category: 'cat-utilities', description: 'Electricity Bill', notes: 'Autopay energy' },
+        { id: 'tx-demo-4', type: 'expense', amount: 25000.00, date: formatOffsetDate(10), category: 'cat-housing', description: 'Monthly House Rent', notes: '2BHK Apartment' },
+        { id: 'tx-demo-5', type: 'expense', amount: 1250.00, date: formatOffsetDate(2), category: 'cat-food', description: 'Dinner at Restaurant', notes: 'Dinner with friends' }
+      ];
+      const johnState = {
+        transactions: demoTransactions,
+        budgets: { ...DEFAULT_BUDGETS },
+        categories: [ ...DEFAULT_CATEGORIES ],
+        theme: 'light',
+        activeView: 'view-dashboard'
+      };
+      localStorage.setItem(johnKey, JSON.stringify(johnState));
     }
-  });
-
-  loadStateFromStorage();
-  setupEventListeners();
-  
-  // Sync selector value and UI details
-  const profileSelect = document.getElementById('user-profile-select');
-  if (profileSelect) {
-    profileSelect.value = currentUser;
   }
-  updateUserProfileUI();
-  
-  applyTheme(state.theme);
-  setCurrentDate();
-  
-  // Render application
-  navigate(state.activeView);
-  renderAll();
+
+  // Load current session
+  currentUser = localStorage.getItem('monthly_expenses_current_user') || '';
+
+  let sessionValid = false;
+  if (currentUser) {
+    accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+    const hasAccount = Object.values(accounts).some(acc => acc.userId === currentUser);
+    if (hasAccount) {
+      sessionValid = true;
+    }
+  }
+
+  if (sessionValid) {
+    document.body.className = 'logged-in';
+    loadStateFromStorage();
+    updateUserProfileUI();
+    applyTheme(state.theme);
+    setCurrentDate();
+    navigate(state.activeView);
+    renderAll();
+  } else {
+    currentUser = '';
+    localStorage.removeItem('monthly_expenses_current_user');
+    document.body.className = 'logged-out';
+    applyTheme('light'); // default theme for auth page
+  }
+
+  setupEventListeners();
 });
 
 // --- State Management ---
 function saveStateToStorage() {
-  localStorage.setItem(STORAGE_KEY + '_' + currentUser, JSON.stringify(state));
-}
-
-function loadStateFromStorage() {
-  const stored = localStorage.getItem(STORAGE_KEY + '_' + currentUser);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      state = {
-        transactions: parsed.transactions || [],
-        budgets: parsed.budgets || { ...DEFAULT_BUDGETS },
-        categories: parsed.categories || [ ...DEFAULT_CATEGORIES ],
-        theme: parsed.theme || 'light',
-        activeView: parsed.activeView || 'view-dashboard'
-      };
-    } catch (e) {
-      console.error('Failed to parse database state from localStorage, using defaults.', e);
-    }
-  } else {
-    // If there is no stored data, initialize with default state
-    state = {
-      transactions: [],
-      budgets: { ...DEFAULT_BUDGETS },
-      categories: [ ...DEFAULT_CATEGORIES ],
-      theme: 'light',
-      activeView: 'view-dashboard'
-    };
-    // For John Doe, load demo data by default on first visit so the dashboard is rich
-    if (currentUser === 'user-john') {
-      loadDemoData(false); // Load quietly
-    } else {
-      saveStateToStorage();
-    }
+  if (currentUser) {
+    localStorage.setItem(STORAGE_KEY + '_' + currentUser, JSON.stringify(state));
   }
 }
 
@@ -174,63 +173,216 @@ function setupEventListeners() {
   document.getElementById('btn-export-json').addEventListener('click', exportDatabaseJSON);
   document.getElementById('btn-export-pdf').addEventListener('click', exportLedgerPDF);
   document.getElementById('input-import-json').addEventListener('change', importDatabaseJSON);
-  document.getElementById('btn-wipe-data').addEventListener('click', handleHardReset);
+  const wipeDataBtn = document.getElementById('btn-wipe-data');
+  if (wipeDataBtn) {
+    wipeDataBtn.addEventListener('click', handleHardReset);
+  }
 
-  // Switch profile selector
-  const profileSelect = document.getElementById('user-profile-select');
-  if (profileSelect) {
-    profileSelect.addEventListener('change', (e) => {
-      switchUserProfile(e.target.value);
-    });
+  // Authentication screen listeners
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
+  const formLogin = document.getElementById('form-login');
+  const formRegister = document.getElementById('form-register');
+
+  tabLogin.addEventListener('click', () => {
+    tabLogin.classList.add('active');
+    tabRegister.classList.remove('active');
+    formLogin.classList.add('active');
+    formRegister.classList.remove('active');
+    document.getElementById('login-error').style.display = 'none';
+  });
+
+  tabRegister.addEventListener('click', () => {
+    tabRegister.classList.add('active');
+    tabLogin.classList.remove('active');
+    formRegister.classList.add('active');
+    formLogin.classList.remove('active');
+    document.getElementById('register-error').style.display = 'none';
+  });
+
+  formLogin.addEventListener('submit', handleLoginSubmit);
+  formRegister.addEventListener('submit', handleRegisterSubmit);
+
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
+  }
+
+  const logoutBtnMobile = document.getElementById('btn-logout-mobile');
+  if (logoutBtnMobile) {
+    logoutBtnMobile.addEventListener('click', handleLogout);
   }
 }
 
-// --- Multi-User Switcher ---
-function switchUserProfile(newUserId) {
-  // 1. Save current user's state
-  saveStateToStorage();
-  
-  // 2. Switch current user
-  currentUser = newUserId;
-  localStorage.setItem('monthly_expenses_current_user', currentUser);
-  
-  // 3. Load the new user's state
-  loadStateFromStorage();
-  
-  // 4. Update selector value (keeps UI in sync)
-  const profileSelect = document.getElementById('user-profile-select');
-  if (profileSelect) {
-    profileSelect.value = currentUser;
+// --- Authentication Controllers ---
+function handleLoginSubmit(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById('login-username').value.trim();
+  const passwordInput = document.getElementById('login-password').value;
+  const errorDiv = document.getElementById('login-error');
+
+  if (!usernameInput || !passwordInput) {
+    errorDiv.innerText = 'Please enter both username and password.';
+    errorDiv.style.display = 'block';
+    return;
   }
+
+  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  const accountKey = usernameInput.toLowerCase();
+
+  if (!accounts[accountKey]) {
+    errorDiv.innerText = 'Account does not exist. Please register first.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  const userAcc = accounts[accountKey];
+  if (userAcc.password !== passwordInput) {
+    errorDiv.innerText = 'Incorrect password. Please try again.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  // Login successful
+  currentUser = userAcc.userId;
+  localStorage.setItem('monthly_expenses_current_user', currentUser);
+  document.body.className = 'logged-in';
   
-  // 5. Update user-specific UI decorations
+  loadStateFromStorage();
   updateUserProfileUI();
-  
-  // 6. Apply loaded theme
   applyTheme(state.theme);
-  
-  // 7. Render everything
   renderAll();
   
-  // Navigate back to Dashboard on user switch for a fresh overview
-  navigate('view-dashboard');
+  // Reset form
+  document.getElementById('form-login').reset();
+  errorDiv.style.display = 'none';
+}
+
+// --- User Registration & Login ---
+function handleRegisterSubmit(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById('register-username').value.trim();
+  const passwordInput = document.getElementById('register-password').value;
+  const errorDiv = document.getElementById('register-error');
+
+  if (!usernameInput || !passwordInput) {
+    errorDiv.innerText = 'Please enter a username and password.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  if (passwordInput.length < 4) {
+    errorDiv.innerText = 'Password must be at least 4 characters long.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  const accountKey = usernameInput.toLowerCase();
+
+  if (accounts[accountKey]) {
+    errorDiv.innerText = 'Username is already taken.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  // Create new account
+  const userId = 'user-' + Date.now();
+  accounts[accountKey] = {
+    username: usernameInput,
+    password: passwordInput,
+    userId: userId
+  };
+  localStorage.setItem('monthly_expenses_accounts', JSON.stringify(accounts));
+
+  // Auto Login
+  currentUser = userId;
+  localStorage.setItem('monthly_expenses_current_user', currentUser);
+  document.body.className = 'logged-in';
+
+  // Initialize state
+  state = {
+    transactions: [],
+    budgets: { ...DEFAULT_BUDGETS },
+    categories: [ ...DEFAULT_CATEGORIES ],
+    theme: 'light',
+    activeView: 'view-dashboard'
+  };
+  saveStateToStorage();
+
+  // Load and render
+  updateUserProfileUI();
+  applyTheme(state.theme);
+  renderAll();
+
+  // Reset form
+  document.getElementById('form-register').reset();
+  errorDiv.style.display = 'none';
+}
+
+function handleLogout() {
+  if (confirm('Are you sure you want to log out?')) {
+    saveStateToStorage();
+    currentUser = '';
+    localStorage.removeItem('monthly_expenses_current_user');
+    document.body.className = 'logged-out';
+  }
 }
 
 function updateUserProfileUI() {
   const avatar = document.getElementById('user-avatar');
   const greeting = document.getElementById('greeting-title');
+  const sidebarUsername = document.getElementById('logged-in-username');
+  const settingsUsername = document.getElementById('settings-profile-username');
   
-  if (avatar && greeting) {
-    if (currentUser === 'user-john') {
-      avatar.innerText = 'JD';
-      greeting.innerText = 'Hello, John';
-    } else if (currentUser === 'user-jane') {
-      avatar.innerText = 'JS';
-      greeting.innerText = 'Hello, Jane';
-    } else if (currentUser === 'user-alex') {
-      avatar.innerText = 'AJ';
-      greeting.innerText = 'Hello, Alex';
+  let name = 'User';
+  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  const userAcc = Object.values(accounts).find(acc => acc.userId === currentUser);
+  if (userAcc) {
+    name = userAcc.username;
+  }
+  
+  if (avatar) {
+    avatar.innerText = name.substring(0, 2).toUpperCase();
+  }
+  if (greeting) {
+    greeting.innerText = `Hello, ${name}`;
+  }
+  if (sidebarUsername) {
+    sidebarUsername.innerText = name;
+  }
+  if (settingsUsername) {
+    settingsUsername.innerText = name;
+  }
+}
+
+// --- State Management Helpers ---
+function loadStateFromStorage() {
+  if (!currentUser) return;
+  const stored = localStorage.getItem(STORAGE_KEY + '_' + currentUser);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      state = {
+        transactions: parsed.transactions || [],
+        budgets: parsed.budgets || { ...DEFAULT_BUDGETS },
+        categories: parsed.categories || [ ...DEFAULT_CATEGORIES ],
+        theme: parsed.theme || 'light',
+        activeView: parsed.activeView || 'view-dashboard'
+      };
+    } catch (e) {
+      console.error('Failed to parse database state from localStorage, using defaults.', e);
     }
+  } else {
+    // If there is no stored data, initialize with default state
+    state = {
+      transactions: [],
+      budgets: { ...DEFAULT_BUDGETS },
+      categories: [ ...DEFAULT_CATEGORIES ],
+      theme: 'light',
+      activeView: 'view-dashboard'
+    };
+    saveStateToStorage();
   }
 }
 
@@ -1117,6 +1269,7 @@ function handleTransactionSubmit(e) {
   }
 }
 
+// Transactions Delete
 function deleteTransaction(id) {
   if (confirm('Are you sure you want to delete this transaction record?')) {
     state.transactions = state.transactions.filter(t => t.id !== id);
@@ -1138,6 +1291,7 @@ function openBudgetModal(catId) {
   modal.classList.add('active');
 }
 
+// Budget Closures
 function closeBudgetModal() {
   document.getElementById('modal-budget').classList.remove('active');
 }
@@ -1283,8 +1437,6 @@ function exportLedgerPDF() {
 
   const doc = new jsPDF('l', 'mm', 'a4');
 
-
-
   // Palette definition
   const primaryColor = [79, 70, 229]; // Indigo
   const darkColor = [15, 23, 42]; // Slate 900
@@ -1309,9 +1461,12 @@ function exportLedgerPDF() {
   doc.text("Personal Expense Ledger & Budget Statement", 15, 29);
 
   // Profile metadata (aligned to right margin)
-  let userProfileName = "John Doe";
-  if (currentUser === 'user-jane') userProfileName = "Jane Smith";
-  if (currentUser === 'user-alex') userProfileName = "Alex Johnson";
+  let userProfileName = "User";
+  const accounts = JSON.parse(localStorage.getItem('monthly_expenses_accounts') || '{}');
+  const userAcc = Object.values(accounts).find(acc => acc.userId === currentUser);
+  if (userAcc) {
+    userProfileName = userAcc.username;
+  }
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
