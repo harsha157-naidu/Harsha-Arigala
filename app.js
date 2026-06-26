@@ -39,7 +39,6 @@ let state = {
     budgets: { ...DEFAULT_BUDGETS },
     categories: [...DEFAULT_CATEGORIES],
     theme: 'light',
-    language: 'en',
     activeView: 'view-dashboard'
 };
 
@@ -79,7 +78,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setupEventListeners();
-    initGoogleTranslate();
 });
 
 // --- State Management ---
@@ -229,21 +227,6 @@ function setupEventListeners() {
             if (targetAcc) {
                 switchUserProfile(targetAcc.userId, targetAcc.username);
             }
-        });
-    }
-
-    // Language selector triggers
-    const sidebarLanguageSelect = document.getElementById('sidebar-language-select');
-    if (sidebarLanguageSelect) {
-        sidebarLanguageSelect.addEventListener('change', (e) => {
-            changeLanguage(e.target.value);
-        });
-    }
-
-    const settingsLanguageSelect = document.getElementById('custom-language-select');
-    if (settingsLanguageSelect) {
-        settingsLanguageSelect.addEventListener('change', (e) => {
-            changeLanguage(e.target.value);
         });
     }
 }
@@ -397,7 +380,6 @@ async function handleRegisterSubmit(e) {
             budgets: { ...DEFAULT_BUDGETS },
             categories: [...DEFAULT_CATEGORIES],
             theme: 'light',
-            language: 'en',
             activeView: 'view-dashboard'
         };
         localStorage.setItem(userStateKey, JSON.stringify(defaultState));
@@ -507,7 +489,6 @@ async function loadStateFromStorage() {
                 budgets: data.budgets || { ...DEFAULT_BUDGETS },
                 categories: data.categories || [...DEFAULT_CATEGORIES],
                 theme: data.theme || 'light',
-                language: data.language || 'en',
                 activeView: data.activeView || 'view-dashboard'
             };
             // Backup locally
@@ -528,7 +509,6 @@ async function loadStateFromStorage() {
                 budgets: parsed.budgets || { ...DEFAULT_BUDGETS },
                 categories: parsed.categories || [...DEFAULT_CATEGORIES],
                 theme: parsed.theme || 'light',
-                language: parsed.language || 'en',
                 activeView: parsed.activeView || 'view-dashboard'
             };
         } catch (e) {
@@ -541,7 +521,6 @@ async function loadStateFromStorage() {
             budgets: { ...DEFAULT_BUDGETS },
             categories: [...DEFAULT_CATEGORIES],
             theme: 'light',
-            language: 'en',
             activeView: 'view-dashboard'
         };
         saveStateToStorage();
@@ -1846,7 +1825,6 @@ function handleHardReset() {
             budgets: {},
             categories: [...DEFAULT_CATEGORIES],
             theme: 'light',
-            language: 'en',
             activeView: 'view-dashboard'
         };
         saveStateToStorage();
@@ -1899,75 +1877,6 @@ function loadDemoData(triggerAlert = true) {
     }
 }
 
-// --- Google Translate Translation Engine ---
 
-function initGoogleTranslate() {
-    // 1. Inject hidden element for Google Translate widget
-    if (!document.getElementById('google_translate_element')) {
-        const div = document.createElement('div');
-        div.id = 'google_translate_element';
-        div.style.display = 'none';
-        document.body.appendChild(div);
-    }
-
-    // 2. Define standard Translate initialization callback
-    window.googleTranslateElementInit = function () {
-        new google.translate.TranslateElement({
-            pageLanguage: 'en',
-            includedLanguages: 'en,hi,bn,te,mr,ta,gu,kn,ml,pa,or,ur,as,mai,sa,kok,doi,ks,ne,sd,mni,brx,sat',
-            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-            autoDisplay: false
-        }, 'google_translate_element');
-
-        // Let Google Translate load, then apply saved language
-        setTimeout(applySavedLanguage, 800);
-    };
-
-    // 3. Inject Google Translate library script tag
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-    document.head.appendChild(script);
-}
-
-function changeLanguage(langCode) {
-    state.language = langCode;
-    saveStateToStorage();
-
-    // Update dropdown menus values
-    const sidebarSelect = document.getElementById('sidebar-language-select');
-    const settingsSelect = document.getElementById('custom-language-select');
-    if (sidebarSelect) sidebarSelect.value = langCode;
-    if (settingsSelect) settingsSelect.value = langCode;
-
-    // Set cookies for Google Translate persistence
-    const cookieVal = langCode === 'en' ? '/en/en' : `/en/${langCode}`;
-    document.cookie = `googtrans=${cookieVal}; path=/;`;
-    document.cookie = `googtrans=${cookieVal}; path=/; domain=${window.location.hostname};`;
-
-    // Trigger translation change in Google Translate Combo dropdown if present
-    const selectEl = document.querySelector('.goog-te-combo');
-    if (selectEl) {
-        selectEl.value = langCode;
-        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-}
-
-function applySavedLanguage() {
-    const savedLang = state.language || 'en';
-
-    // Sync custom dropdown values
-    const sidebarSelect = document.getElementById('sidebar-language-select');
-    const settingsSelect = document.getElementById('custom-language-select');
-    if (sidebarSelect) sidebarSelect.value = savedLang;
-    if (settingsSelect) settingsSelect.value = savedLang;
-
-    // Apply translate combo select value
-    const selectEl = document.querySelector('.goog-te-combo');
-    if (selectEl && selectEl.value !== savedLang) {
-        selectEl.value = savedLang;
-        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-}
 
 
